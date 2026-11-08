@@ -1,0 +1,13 @@
+# upstream source and build output (scripts\build.cmd recreates them)
+qwentts.cpp/
+bin/
+
+# models and voices are user data
+models/
+*.gguf
+*.wav
+*.spk
+*.rvq
+
+# logs
+*.log

@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Qwen3-TTS Studio</title>
+<style>
+:root {
+    --bg: #10141f;
+    --panel: rgba(255, 255, 255, .06);
+    --panel-2: rgba(255, 255, 255, .09);
+    --line: rgba(255, 255, 255, .13);
+    --text: #f8fafc;
+    --muted: rgba(248, 250, 252, .62);
+    --faint: rgba(248, 250, 252, .42);
+    --ok: #4ade80;
+    --wait: #fbbf24;
+    --bad: #fb7185;
+    --accent: #38bdf8;
+    --accent-ink: #082f49;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; min-height: 100%; }
+
+body {
+    color: var(--text);
+    font: 14px/1.55 "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+    background:
+        radial-gradient(circle at 15% 0%, rgba(56, 189, 248, .16), transparent 38%),
+        radial-gradient(circle at 90% 100%, rgba(74, 222, 128, .12), transparent 40%),
+        linear-gradient(135deg, #10141f, #172033 58%, #111827);
+    background-attachment: fixed;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 22px 16px 40px; }
+
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+h1 { margin: 0; font-size: 22px; font-weight: 650; }
+.sub { color: var(--muted); font-size: 13px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 12.5px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.dot.ok { background: var(--ok); }
+.dot.wait { background: var(--wait); animation: pulse 1.2s ease-in-out infinite; }
+.dot.bad { background: var(--bad); }
+@keyframes pulse { 50% { opacity: .35; } }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+.card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 16px; }
+
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.tab { padding: 8px 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+.tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.tab:disabled { opacity: .4; cursor: not-allowed; }
+
+label { display: block; margin: 12px 0 5px; color: var(--muted); font-size: 13px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 520px) { .row, .row3 { grid-template-columns: 1fr; } }
+
+textarea, input, select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: rgba(0, 0, 0, .22); color: var(--text); font: inherit;
+}
+textarea { resize: vertical; min-height: 110px; }
+select option { background: #1e293b; }
+textarea:focus, input:focus, select:focus { outline: 2px solid rgba(56, 189, 248, .45); outline-offset: 0; border-color: transparent; }
+
+button.btn {
+    min-height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer;
+}
+button.btn:hover { background: rgba(255, 255, 255, .14); }
+button.btn:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 650; }
+button.primary:hover { background: #7dd3fc; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+.hint { color: var(--faint); font-size: 12.5px; margin-top: 6px; }
+.msg { min-height: 20px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.msg.bad { color: var(--bad); }
+.msg.ok { color: var(--ok); }
+
+.pane[hidden] { display: none; }
+.sep { height: 1px; background: var(--line); margin: 16px 0 4px; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pill { padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.pill:hover { color: var(--text); border-color: var(--accent); }
+
+details { margin-top: 12px; }
+summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+
+.results { display: grid; gap: 10px; }
+.result { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: rgba(0, 0, 0, .16); }
+.result .meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--faint); }
+.result .text { margin: 4px 0 8px; overflow-wrap: anywhere; }
+.result audio { width: 100%; height: 36px; }
+.result a { color: var(--accent); font-size: 12.5px; }
+.empty { color: var(--faint); text-align: center; padding: 30px 0; }
+
+code, pre { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12.5px; }
+pre { margin: 6px 0 0; padding: 10px; border-radius: 8px; background: rgba(0, 0, 0, .3); overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+.api { margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <div>
+            <h1>Qwen3-TTS Studio</h1>
+            <div class="sub" id="modelName">本地 GGUF · qwentts.cpp</div>
+        </div>
+        <div class="chips" id="chips"></div>
+    </header>
+
+    <div class="grid">
+        <section class="card">
+            <div class="tabs" role="tablist" id="tabs">
+                <button class="tab" role="tab" data-mode="base">声音克隆</button>
+                <button class="tab" role="tab" data-mode="customvoice">预设音色</button>
+                <button class="tab" role="tab" data-mode="voicedesign">声音设计</button>
+            </div>
+
+            <label for="text">要合成的文本</label>
+            <textarea id="text" placeholder="输入要朗读的内容……"></textarea>
+            <div class="hint" id="textCount">0 字</div>
+
+            <div class="row">
+                <div>
+                    <label for="lang">语言</label>
+                    <select id="lang"></select>
+                </div>
+                <div id="voiceBox">
+                    <label for="voice" id="voiceLabel">声音</label>
+                    <select id="voice"></select>
+                </div>
+            </div>
+
+            <!-- 声音克隆 -->
+            <div class="pane" data-pane="base">
+                <div class="hint">不选声音时使用模型默认音色。克隆时附上参考音频的原文，相似度更高。</div>
+                <div class="sep"></div>
+                <label>注册新声音（3~20 秒清晰人声，wav / mp3 / m4a 都行）</label>
+                <input type="file" id="refFile" accept="audio/*">
+                <label for="refText">参考音频的原文（可留空，留空就只模仿音色）</label>
+                <textarea id="refText" style="min-height:64px" placeholder="参考音频里说的话，一字不差最好"></textarea>
+                <div class="row">
+                    <div>
+                        <label for="refName">声音名字</label>
+                        <input id="refName" placeholder="例如 my_voice">
+                    </div>
+                    <div class="actions" style="align-items:end">
+                        <button class="btn" id="registerBtn">注册</button>
+                        <button class="btn" id="deleteBtn" title="删除当前选中的已注册声音">删除选中</button>
+                    </div>
+                </div>
+                <div class="hint" id="voicesDirHint">这里注册的声音在服务重启后会消失；想长期保存，把 <code>名字.wav</code>（和可选的 <code>名字.txt</code> 原文）放进声音库文件夹，启动时会自动注册。</div>
+            </div>
+
+            <!-- 预设音色 -->
+            <div class="pane" data-pane="customvoice">
+                <label for="cvInstruct">语气 / 风格（可留空）</label>
+                <input id="cvInstruct" placeholder="例如：用开心兴奋的语气说">
+                <div class="pills" data-target="cvInstruct">
+                    <button class="pill">用开心兴奋的语气说</button>
+                    <button class="pill">语气温柔，语速放慢</button>
+                    <button class="pill">严肃认真，像新闻播报</button>
+                    <button class="pill">带点委屈，快哭了</button>
+                </div>
+            </div>
+
+            <!-- 声音设计 -->
+            <div class="pane" data-pane="voicedesign">
+                <label for="vdInstruct">描述你想要的声音（必填）</label>
+                <textarea id="vdInstruct" style="min-height:76px" placeholder="例如：年轻女性，音调偏高，声音清亮，语气活泼"></textarea>
+                <div class="pills" data-target="vdInstruct">
+                    <button class="pill">年轻女性，音调偏高，声音清亮，语气活泼</button>
+                    <button class="pill">中年男性，低沉浑厚，语速平稳，有磁性</button>
+                    <button class="pill">老奶奶，声音沙哑慈祥，说话慢</button>
+                    <button class="pill">male, young adult, moderate pitch, calm</button>
+                </div>
+            </div>
+
+            <details>
+                <summary>高级采样参数</summary>
+                <div class="row3">
+                    <div><label for="seed">随机种子（-1 随机）</label><input id="seed" type="number" value="-1"></div>
+                    <div><label for="temperature">temperature</label><input id="temperature" type="number" step="0.05" min="0" value="0.9"></div>
+                    <div><label for="topK">top_k</label><input id="topK" type="number" min="0" value="50"></div>
+                    <div><label for="topP">top_p</label><input id="topP" type="number" step="0.05" min="0.05" max="1" value="1"></div>
+                    <div><label for="repPen">repetition_penalty</label><input id="repPen" type="number" step="0.01" min="0.5" value="1.05"></div>
+                    <div><label for="maxNew">最大帧数（12.5 帧 ≈ 1 秒）</label><input id="maxNew" type="number" min="1" value="2048"></div>
+                </div>
+            </details>
+
+            <div class="actions">
+                <button class="btn primary" id="genBtn">生成语音</button>
+                <span class="hint" id="genHint">Ctrl + Enter 也可以生成</span>
+            </div>
+            <div class="msg" id="msg"></div>
+        </section>
+
+        <section class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <strong>生成结果</strong>
+                <button class="btn" id="clearBtn">清空</button>
+            </div>
+            <div class="results" id="results" style="margin-top:12px">
+                <div class="empty" id="empty">还没有生成内容</div>
+            </div>
+
+            <details class="api">
+                <summary>给 AI / 脚本调用的接口</summary>
+                <div class="hint">OpenAI 兼容接口（/v1/audio/speech），每种模式一个端口。完整说明见项目 README。</div>
+                <pre id="apiSample"></pre>
+            </details>
+        </section>
+    </div>
+</div>
+
+<script>
+"use strict";
+
+const params = new URLSearchParams(location.search);
+const API_HOST = params.get("apiHost") || "127.0.0.1";
+const MODES = {
+    base:        { label: "声音克隆", port: 8090 },
+    customvoice: { label: "预设音色", port: 8091 },
+    voicedesign: { label: "声音设计", port: 8092 }
+};
+
+// ?ports=base:8090,customvoice:8091 ；不带参数时三种都尝试默认端口
+const active = {};
+if (params.get("ports")) {
+    for (const part of params.get("ports").split(",")) {
+        const [key, port] = part.split(":");
+        if (MODES[key]) active[key] = Number(port) || MODES[key].port;
+    }
+} else {
+    for (const key in MODES) active[key] = MODES[key].port;
+}
+
+const LANGS = [
+    ["auto", "自动识别"], ["chinese", "中文"], ["english", "英语"], ["japanese", "日语"],
+    ["korean", "韩语"], ["german", "德语"], ["french", "法语"], ["russian", "俄语"],
+    ["portuguese", "葡萄牙语"], ["spanish", "西班牙语"], ["italian", "意大利语"],
+    ["beijing_dialect", "北京话"], ["sichuan_dialect", "四川话"]
+];
+
+const SPEAKER_INFO = {
+    vivian: "Vivian · 明亮年轻女声（中文）",
+    serena: "Serena · 温柔女声（中文）",
+    uncle_fu: "Uncle Fu · 低沉成熟男声（中文）",
+    dylan: "Dylan · 北京小伙（北京话）",
+    eric: "Eric · 成都男声（四川话）",
+    ryan: "Ryan · 有活力的男声（英语）",
+    aiden: "Aiden · 阳光美式男声（英语）",
+    ono_anna: "Ono Anna · 俏皮女声（日语）",
+    sohee: "Sohee · 温暖女声（韩语）"
+};
+
+const $ = id => document.getElementById(id);
+const store = {
+    get(k, d) { try { const v = localStorage.getItem("qts." + k); return v === null ? d : v; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("qts." + k, v); } catch {} }
+};
+
+let mode = null;
+const firstSeen = Date.now();
+const health = {};      // key -> "ok" | "wait" | "bad"
+const voices = {};      // key -> [{name, kind}]
+let busy = false;
+
+// ---------- 初始化 ----------
+
+if (params.get("model")) $("modelName").textContent = params.get("model") + " · qwentts.cpp";
+if (params.get("voicesDir")) {
+    const hint = $("voicesDirHint");
+    hint.append(document.createElement("br"), "声音库：");
+    const c = document.createElement("code");
+    c.textContent = params.get("voicesDir");
+    hint.append(c);
+}
+
+for (const [value, label] of LANGS) $("lang").add(new Option(label, value));
+$("lang").value = store.get("lang", "chinese");
+$("text").value = store.get("text", "你好，这是一段本地生成的语音测试。");
+updateCount();
+
+for (const tab of document.querySelectorAll(".tab")) {
+    const key = tab.dataset.mode;
+    if (!active[key]) {
+        tab.disabled = true;
+        tab.title = "这个模式没有启动（在启动器里选择包含它的加载模式）";
+    }
+    tab.addEventListener("click", () => selectMode(key));
+}
+
+for (const box of document.querySelectorAll(".pills")) {
+    box.addEventListener("click", e => {
+        if (e.target.classList.contains("pill")) $(box.dataset.target).value = e.target.textContent;
+    });
+}
+
+renderChips();
+const saved = store.get("mode", "");
+selectMode(active[saved] ? saved : Object.keys(active)[0]);
+
+$("text").addEventListener("input", () => { updateCount(); store.set("text", $("text").value); });
+$("lang").addEventListener("change", () => store.set("lang", $("lang").value));
+$("voice").addEventListener("change", () => store.set("voice." + mode, $("voice").value));
+$("genBtn").addEventListener("click", generate);
+$("registerBtn").addEventListener("click", registerVoice);
+$("deleteBtn").addEventListener("click", deleteVoice);
+$("clearBtn").addEventListener("click", clearResults);
+document.addEventListener("keydown", e => { if (e.ctrlKey && e.key === "Enter") generate(); });
+
+pollHealth();
+setInterval(pollHealth, 2500);
+
+// ---------- 状态 ----------
+
+function apiBase(key) { return `http://${API_HOST}:${active[key]}`; }
+
+function renderChips() {
+    const box = $("chips");
+    box.textContent = "";
+    for (const key in MODES) {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        const dot = document.createElement("span");
+        const state = active[key] ? (health[key] || "wait") : "off";
+        dot.className = "dot " + (state === "off" ? "" : state);
+        const text = active[key]
+            ? `${MODES[key].label} :${active[key]} · ${state === "ok" ? "就绪" : state === "bad" ? "无响应" : "加载中"}`
+            : `${MODES[key].label} · 未启动`;
+        chip.append(dot, text);
+        box.append(chip);
+    }
+}
+
+async function fetchJson(url, options = {}, timeoutMs = 4000) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    try {
+        const r = await fetch(url, { cache: "no-store", ...options, signal: ctl.signal });
+        const body = await r.json().catch(() => ({}));
+        return { ok: r.ok, status: r.status, body };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function pollHealth() {
+    await Promise.all(Object.keys(active).map(async key => {
+        const before = health[key];
+        try {
+            const r = await fetchJson(apiBase(key) + "/health");
+            health[key] = r.ok ? "ok" : "wait";
+        } catch {
+            // 刚启动时加载模型需要几秒，超过 3 分钟还连不上才算无响应
+            health[key] = Date.now() - firstSeen > 180000 ? "bad" : "wait";
+        }
+        if (health[key] === "ok" && (before !== "ok" || !voices[key])) await loadVoices(key);
+    }));
+    renderChips();
+    updateGenState();
+}
+
+async function loadVoices(key) {
+    try {
+        const r = await fetchJson(apiBase(key) + "/v1/audio/voices");
+        voices[key] = (r.body && r.body.voices) || [];
+    } catch {
+        voices[key] = voices[key] || [];
+    }
+    if (key === mode) renderVoices();
+}
+
+// ---------- 模式切换 ----------
+
+function selectMode(key) {
+    if (!key) return;
+    mode = key;
+    store.set("mode", key);
+    for (const tab of document.querySelectorAll(".tab")) tab.setAttribute("aria-selected", tab.dataset.mode === key);
+    for (const pane of document.querySelectorAll(".pane")) pane.hidden = pane.dataset.pane !== key;
+    $("voiceBox").hidden = key === "voicedesign";
+    $("voiceLabel").textContent = key === "customvoice" ? "说话人" : "克隆的声音";
+    renderVoices();
+    renderApiSample();
+    updateGenState();
+}
+
+function renderVoices() {
+    const sel = $("voice");
+    sel.textContent = "";
+    const list = voices[mode] || [];
+
+    if (mode === "base") {
+        sel.add(new Option("默认音色（不克隆）", ""));
+        for (const v of list.filter(v => v.kind === "registered")) sel.add(new Option(v.name, v.name));
+    } else if (mode === "customvoice") {
+        const speakers = list.filter(v => v.kind === "speaker");
+        const names = speakers.length ? speakers.map(v => v.name) : Object.keys(SPEAKER_INFO);
+        for (const n of names) sel.add(new Option(SPEAKER_INFO[n] || n, n));
+        for (const v of list.filter(v => v.kind === "registered")) sel.add(new Option(v.name + "（已注册）", v.name));
+    }
+
+    const want = store.get("voice." + mode, "");
+    if ([...sel.options].some(o => o.value === want)) sel.value = want;
+}
+
+function updateGenState() {
+    const ready = mode && health[mode] === "ok";
+    $("genBtn").disabled = busy || !ready;
+    $("registerBtn").disabled = busy || !ready;
+    $("deleteBtn").disabled = busy || !ready;
+    $("genHint").textContent = busy ? "正在生成……" : ready ? "Ctrl + Enter 也可以生成" : "等待模型加载……";
+}
+
+function updateCount() { $("textCount").textContent = [...$("text").value].length + " 字"; }
+
+function setMsg(text, cls = "") { const m = $("msg"); m.textContent = text; m.className = "msg " + cls; }
+
+// ---------- 生成 ----------
+
+function numberField(id) {
+    const v = $(id).value.trim();
+    return v === "" ? undefined : Number(v);
+}
+
+function buildRequest() {
+    const body = { input: $("text").value.trim(), response_format: "wav" };
+    if ($("lang").value !== "auto") body.language = $("lang").value;
+
+    if (mode !== "voicedesign" && $("voice").value) body.voice = $("voice").value;
+    if (mode === "customvoice" && $("cvInstruct").value.trim()) body.instructions = $("cvInstruct").value.trim();
+    if (mode === "voicedesign") body.instructions = $("vdInstruct").value.trim();
+
+    const seed = numberField("seed");
+    if (seed !== undefined && seed >= 0) body.seed = Math.trunc(seed);
+    const map = { temperature: "temperature", topK: "top_k", topP: "top_p", repPen: "repetition_penalty", maxNew: "max_new_tokens" };
+    const defaults = { temperature: 0.9, topK: 50, topP: 1, repPen: 1.05, maxNew: 2048 };
+    for (const id in map) {
+        const v = numberField(id);
+        if (v !== undefined && !Number.isNaN(v) && v !== defaults[id]) {
+            body[map[id]] = (id === "topK" || id === "maxNew") ? Math.trunc(v) : v;
+        }
+    }
+    return body;
+}
+
+async function errorText(r) {
+    try {
+        const j = await r.json();
+        return (j.error && (j.error.message || j.error)) || JSON.stringify(j);
+    } catch {
+        return "HTTP " + r.status;
+    }
+}
+
+async function generate() {
+    if (busy || health[mode] !== "ok") return;
+    const body = buildRequest();
+    if (!body.input) return setMsg("请先输入文本。", "bad");
+    if (mode === "voicedesign" && !body.instructions) return setMsg("声音设计模式需要填写声音描述。", "bad");
+
+    busy = true;
+    updateGenState();
+    setMsg("生成中……");
+    const t0 = performance.now();
+
+    try {
+        const r = await fetch(apiBase(mode) + "/v1/audio/speech", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        if (!r.ok) throw new Error(await errorText(r));
+        const blob = await r.blob();
+        const seconds = (performance.now() - t0) / 1000;
+        addResult(blob, body, seconds);
+        setMsg(`完成，用时 ${seconds.toFixed(1)} 秒。`, "ok");
+    } catch (e) {
+        setMsg("生成失败：" + e.message, "bad");
+    } finally {
+        busy = false;
+        updateGenState();
+    }
+}
+
+function stamp() {
+    const d = new Date(), p = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+function addResult(blob, body, seconds) {
+    $("empty").hidden = true;
+    const url = URL.createObjectURL(blob);
+    const item = document.createElement("div");
+    item.className = "result";
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const who = mode === "voicedesign" ? body.instructions : (body.voice || "默认音色");
+    const left = document.createElement("span");
+    left.textContent = `${MODES[mode].label} · ${who}`;
+    const right = document.createElement("span");
+    right.textContent = `生成 ${seconds.toFixed(1)}s`;
+    meta.append(left, right);
+
+    const text = document.createElement("div");
+    text.className = "text";
+    text.textContent = body.input;
+
+    const audio = document.createElement("audio");
+    audio.controls = true;
+    audio.src = url;
+    audio.addEventListener("loadedmetadata", () => {
+        if (Number.isFinite(audio.duration)) right.textContent = `音频 ${audio.duration.toFixed(1)}s · 生成 ${seconds.toFixed(1)}s`;
+    });
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `tts_${stamp()}.wav`;
+    link.textContent = "下载 wav";
+
+    item.append(meta, text, audio, link);
+    $("results").prepend(item);
+    audio.play().catch(() => {});
+}
+
+function clearResults() {
+    for (const el of [...$("results").querySelectorAll(".result")]) {
+        const a = el.querySelector("audio");
+        if (a) URL.revokeObjectURL(a.src);
+        el.remove();
+    }
+    $("empty").hidden = false;
+}
+
+// ---------- 声音注册 ----------
+
+// 任意格式音频 → 24 kHz 单声道 16-bit WAV → base64（服务端只收 WAV）
+async function fileToWavBase64(file) {
+    const raw = await file.arrayBuffer();
+    const ctx = new AudioContext();
+    let decoded;
+    try {
+        decoded = await ctx.decodeAudioData(raw);
+    } finally {
+        ctx.close();
+    }
+
+    const rate = 24000;
+    const length = Math.ceil(decoded.duration * rate);
+    const off = new OfflineAudioContext(1, length, rate);
+    const src = off.createBufferSource();
+    src.buffer = decoded;
+    src.connect(off.destination);
+    src.start();
+    const pcm = (await off.startRendering()).getChannelData(0);
+
+    const buf = new ArrayBuffer(44 + pcm.length * 2);
+    const v = new DataView(buf);
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, "RIFF"); v.setUint32(4, 36 + pcm.length * 2, true); str(8, "WAVE");
+    str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    str(36, "data"); v.setUint32(40, pcm.length * 2, true);
+    for (let i = 0; i < pcm.length; i++) {
+        const s = Math.max(-1, Math.min(1, pcm[i]));
+        v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+
+    const bytes = new Uint8Array(buf);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return { b64: btoa(bin), seconds: decoded.duration };
+}
+
+async function registerVoice() {
+    const file = $("refFile").files[0];
+    const name = $("refName").value.trim();
+    if (!file) return setMsg("请先选择参考音频。", "bad");
+    if (!/^[\w\-一-鿿]{1,40}$/.test(name)) return setMsg("声音名字只用字母、数字、下划线、横线或中文，40 字以内。", "bad");
+
+    busy = true;
+    updateGenState();
+    setMsg("正在处理参考音频……");
+    try {
+        const { b64, seconds } = await fileToWavBase64(file);
+        if (seconds > 30) setMsg(`参考音频 ${seconds.toFixed(0)} 秒，偏长，3~20 秒效果最好。正在注册……`);
+        const body = { name, wav_b64: b64 };
+        if ($("refText").value.trim()) body.ref_text = $("refText").value.trim();
+        const r = await fetch(apiBase("base") + "/v1/audio/voices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        if (!r.ok) throw new Error(await errorText(r));
+        store.set("voice.base", name);
+        await loadVoices("base");
+        setMsg(`已注册「${name}」。`, "ok");
+    } catch (e) {
+        setMsg("注册失败：" + e.message, "bad");
+    } finally {
+        busy = false;
+        updateGenState();
+    }
+}
+
+async function deleteVoice() {
+    const name = $("voice").value;
+    const v = (voices.base || []).find(x => x.name === name && x.kind === "registered");
+    if (!v) return setMsg("先在「克隆的声音」里选中一个已注册的声音。", "bad");
+    if (!confirm(`删除已注册的声音「${name}」？（声音库文件夹里的文件不受影响）`)) return;
+    try {
+        const r = await fetch(apiBase("base") + "/v1/audio/voices/" + encodeURIComponent(name), { method: "DELETE" });
+        if (!r.ok) throw new Error(await errorText(r));
+        await loadVoices("base");
+        setMsg(`已删除「${name}」。`, "ok");
+    } catch (e) {
+        setMsg("删除失败：" + e.message, "bad");
+    }
+}
+
+// ---------- 接口示例 ----------
+
+function renderApiSample() {
+    const port = active[mode] || MODES[mode].port;
+    const example = {
+        base: '{"input":"你好","voice":"my_voice","language":"chinese","response_format":"wav"}',
+        customvoice: '{"input":"你好","voice":"vivian","instructions":"用开心的语气说","response_format":"wav"}',
+        voicedesign: '{"input":"你好","instructions":"年轻女性，声音清亮","response_format":"wav"}'
+    }[mode];
+    $("apiSample").textContent =
+        `curl -X POST http://127.0.0.1:${port}/v1/audio/speech \\\n` +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '${example}' -o out.wav\n\n` +
+        `GET  http://127.0.0.1:${port}/v1/audio/voices   # 可用声音\n` +
+        `GET  http://127.0.0.1:${port}/health`;
+}
+</script>
+</body>
+</html>
